@@ -4,7 +4,7 @@
 # @filename: os64bit
 # @author: aliben.develop@gmail.com
 # @create_date: 2021-12-04 20:23:59
-# @last_modified_date: NO_LAST_MODIFIED_DATE
+# @last_modified_date: 2021-12-04 22:56:42
 # @description: TODO
 #---****************************************************************---
 
@@ -36,6 +36,7 @@ build_warning("Debug Postfix: ${CMAKE_DEBUG_POSTFIX}")
   add_subdirectory(src)
   add_subdirectory(examples)
   add_subdirectory(test)
+  add_subdirectory(boot)
 
 # EXECUTABLE
   # Example: ADD_EXECUTABLE( EXEC_NAME SRC_FILE_NAME_LIST )
