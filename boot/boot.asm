@@ -1,3 +1,11 @@
+;---Automatically Generated from template 'bash' wrote by @aliben---
+; @Copyright (C) 2021 All rights reserved.
+; @file: boot.asm
+; @author: aliben.develop@gmail.com
+; @created_date: 2021-12-12 00:06:04
+; @last_modified_date: 2021-12-19 13:22:07
+; @brief: TODO
+;---***********************************************---
 org 0x7c00
 
 ; Literal valus definition
@@ -5,33 +13,7 @@ BaseAddressOfStack  equ 0x7c00
 BaseAddressOfLoader equ 0x1000
 OffsetOfLoader      equ 0x0000
 
-RootDirSectors equ 14
-SectorOfRootDirStart equ 19
-SectorOfFAT1Start equ 1
-SectorBalance equ 17
-
-; Program beginning
-  jmp short Label_Start
-  nop
-  BootSectorOEMName                         db 'Aliben  '
-  BIOSParameterBlockBytesPerSec             dw 512
-  BIOSParameterBlockSectorPerCluster        db 1
-  BIOSParameterBlockReservedSectorCount     dw 1
-  BIOSParameterBlockNumFATTables            db 2
-  BIOSParameterBlockNumRootEntry            dw 224
-  BIOSParameterBlockTotoalSector16          dw 2880
-  BIOSParameterBlockMedia                   db 0xf0
-  BIOSParameterBlockSectorOfTableFAT        dw 9
-  BIOSParameterBlockSectorPerTrack          dw 18
-  BIOSParameterBlockNumHeads                dw 2
-  BIOSParameterBlockHiddenSectors           dd 0
-  BIOSParameterBlockTotalSector32           dd 0
-  BootSectorDriveNum                        db 0
-  BootSectorReserved1                       db 0
-  BootSectorExtensionFlag                   db 0x29
-  BootSectorVolID                           dd 0
-  BootSectorVolLab                          db 'boot loader'
-  BootSectorFileSystemType                  db 'FAT12   '
+%include "fat12.inc"
 
 Label_Start:
   mov ax, cs                          ; cs default: 0000
@@ -79,7 +61,6 @@ Label_Start:
   xor ah, ah                ; AH=00h, Reset DiskSystem, reset AH:AL=00??h
   xor dl, dl                ; DL: driver number(0=A, 1=2nd floppy, 80h=drive 0, 81h=drive 1)
   int 13h                   ; INT 13h,00h: Reset DiskSystem
-  ;jmp $
 
 ;=========== search loader.bin
   mov word [SectorNumber], SectorOfRootDirStart
@@ -91,29 +72,32 @@ Label_Search_In_Root_Dir_Begin:
   ;mov ax, 0000h
   mov ax, 00h
   mov es, ax
-  mov bx, 8000h
-  mov ax, [SectorNumber]
-  mov cl, 1
+  mov bx, 8000h                         ; buffer address es:bx
+  mov ax, [SectorNumber]                ; sector to read from
+  mov cl, 1                             ; sector# to read
   call Func_ReadOneSector
   mov si, LoaderFileName
   mov di, 8000h
-  cld
+  cld                                   ; clear DF=0 direct +
   mov dx, 10h
 
 Label_Search_For_LoaderBin:
-  cmp dx, 0
-  jz Label_Goto_Next_Sector_In_Root_Dir
+  cmp dx, 0                             ;   |Cond|ZF|CR|
+                                        ;   |dx>0|0 |0 |
+                                        ;   |dx=0|1 |0 |
+                                        ;   |dx<0|0 |1 |
+  jz Label_Goto_Next_Sector_In_Root_Dir ; jmp when dx == 0
   dec dx
-  mov cx, 11
+  mov cx, 11                            ; Filename+Extension = 8 + 3 = 11 Bytes
 
 Label_Cmp_FileName:
   cmp cx, 0
-  jz Label_FileName_Found
+  jz Label_FileName_Found               ; jmp when cx == 0
   dec cx
-  lodsb
+  lodsb                                 ; Load byte at address DS:(E)SI into AL
   cmp al, byte [es:di]
-  jz Label_Go_On
-  jmp Label_Different
+  jz Label_Go_On                        ; when al = filename[idx], jmp GoOn
+  jmp Label_Different                   ; filename different
 
 Label_Go_On:
   inc di
@@ -143,15 +127,15 @@ Label_No_LoaderBin:
   int 10h                   ; Writing String
   jmp $                     ; Inifinite loop
 
-;===================== fond load.bin name in root director struct
+;===================== fond loader.bin name in root director struct
 Label_FileName_Found:
   mov ax, RootDirSectors
-  and di, 0ffe0h
-  add di, 01ah
-  mov cx, word [es:di]
+  and di, 0FFE0h                  ; Round down for RootDirEntryBegin
+  add di, 01Ah                    ; Offset for DIR_FirstClust
+  mov cx, word [es:di]            ; Get the first cluster of loader.bin
   push cx
   add cx, ax
-  add cx, SectorBalance
+  add cx, SectorBalance           ; Calculate the sector# of loader.bin
   mov ax, BaseAddressOfLoader
   mov es, ax
   mov bx, OffsetOfLoader
@@ -164,12 +148,12 @@ Label_Go_On_Loading_File:
   mov al, '.'
   mov bl, 0fh
   int 10h
-  pop bx
-  pop ax
+  pop bx                          ; BX store OffsetOfLoader
+  pop ax                          ; AX store sector# of loader.bin to read
 
-  mov cl, 1
+  mov cl, 1                       ; Read 1 sector to ES:BX, i.e. to read loader.bin to ES:BX
   call Func_ReadOneSector
-  pop ax
+  pop ax                          ; AX store the first cluster of loader.bin
   call Func_GetFATEntry
   cmp ax, 0fffh
   jz Label_File_Loaded
@@ -185,7 +169,7 @@ Label_File_Loaded:
 
 ;======================= read one sector from floppy
 Func_ReadOneSector:
-  push bp
+  push bp                                       ; save caller stack frame
   mov bp, sp                                    ; create function stack for Func_ReadOneSector
   sub esp, 2                                    ; create a word for cl
   mov byte [bp - 2], cl                         ; save cl regarding sector number to stack
@@ -213,9 +197,9 @@ Label_Go_On_Reading:
                                 ;           AL= number of sectors read,
                                 ;           CF=0 if succ., 1 if error
   int 13h                       ; INT 13h,02h: Read Disk Sectors
-  jc Label_Go_On_Reading
-  add esp, 2
-  pop bp
+  jc Label_Go_On_Reading        ; If read failed(CF=1), then Go On Reading. i.e. while(read_failed) GoOnReading
+  add esp, 2                    ; return
+  pop bp                        ; restore caller stack frame
   ret
 
 ;======================== get FAT Entry

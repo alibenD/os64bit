@@ -4,17 +4,17 @@
 # @filename: CMakeLists.txt
 # @author: aliben.develop@gmail.com
 # @create_date: 2021-12-04 22:56:49
-# @last_modified_date: 2021-12-12 23:26:44
+# @last_modified_date: 2021-12-15 21:12:38
 # @description: TODO
 #---****************************************************************---
 
 
 add_custom_command(OUTPUT GenerateBootBin
-    COMMAND "nasm" ${CMAKE_SOURCE_DIR}/boot/boot.asm -o ${CMAKE_BINARY_DIR}/boot.bin
+    COMMAND nasm -i${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/boot/boot.asm -o ${CMAKE_BINARY_DIR}/boot.bin
   )
 
 add_custom_command(OUTPUT GenerateLoaderBin
-    COMMAND "nasm" ${CMAKE_SOURCE_DIR}/boot/loader.asm -o ${CMAKE_BINARY_DIR}/loader.bin
+    COMMAND nasm -i${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/boot/loader.asm -o ${CMAKE_BINARY_DIR}/loader.bin
   )
 
 add_custom_command(OUTPUT GenerateBootImage
